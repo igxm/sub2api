@@ -275,6 +275,20 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.PartialImages = &v
 	}
 	if req.IsEdits() {
+		if imageURL := strings.TrimSpace(gjson.GetBytes(body, "image_url").String()); imageURL != "" {
+			req.InputImageURLs = append(req.InputImageURLs, imageURL)
+		}
+		imageURLs := gjson.GetBytes(body, "image_urls")
+		if imageURLs.Exists() {
+			if !imageURLs.IsArray() {
+				return fmt.Errorf("invalid image_urls field type")
+			}
+			for _, item := range imageURLs.Array() {
+				if imageURL := strings.TrimSpace(item.String()); imageURL != "" {
+					req.InputImageURLs = append(req.InputImageURLs, imageURL)
+				}
+			}
+		}
 		if image := gjson.GetBytes(body, "image"); image.Exists() {
 			if image.Type == gjson.String {
 				if imageURL := strings.TrimSpace(image.String()); imageURL != "" {

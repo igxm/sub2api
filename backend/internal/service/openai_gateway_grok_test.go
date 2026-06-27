@@ -306,6 +306,87 @@ func TestForwardImagesForGrokEditsSupportsMultipleReferenceImages(t *testing.T) 
 	require.Equal(t, "image_url", gjson.GetBytes(upstream.lastBody, "images.1.type").String())
 }
 
+func TestForwardImagesForGrokEditsAcceptsSDKImageURLField(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-image-quality","prompt":"make it cinematic","image_url":"https://example.test/cat.png","aspect_ratio":"16:9"}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          61,
+		Name:        "grok-image-edit-sdk-url",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "xai-key",
+			"base_url": "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"url":"https://example.test/edited.png"}]}`)),
+	}}
+	svc.httpUpstream = upstream
+
+	_, err = svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, "https://example.test/cat.png", gjson.GetBytes(upstream.lastBody, "image.url").String())
+	require.Equal(t, "image_url", gjson.GetBytes(upstream.lastBody, "image.type").String())
+	require.Equal(t, "16:9", gjson.GetBytes(upstream.lastBody, "aspect_ratio").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "image_url").Exists())
+}
+
+func TestForwardImagesForGrokEditsAcceptsSDKImageURLsField(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-image-quality","prompt":"combine them","image_urls":["https://example.test/cat.png","data:image/png;base64,aGF0"]}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          62,
+		Name:        "grok-image-edit-sdk-urls",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token": "access-token",
+			"expires_at":   time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			"base_url":     "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"url":"https://example.test/edited.png"}]}`)),
+	}}
+	svc.httpUpstream = upstream
+
+	_, err = svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(gjson.GetBytes(upstream.lastBody, "images").Array()))
+	require.Equal(t, "https://example.test/cat.png", gjson.GetBytes(upstream.lastBody, "images.0.url").String())
+	require.Equal(t, "data:image/png;base64,aGF0", gjson.GetBytes(upstream.lastBody, "images.1.url").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "image_urls").Exists())
+}
+
 func TestForwardVideosForGrokGenerationUsesXAIVideosGenerationsAndBearerToken(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	gin.SetMode(gin.TestMode)
@@ -353,6 +434,133 @@ func TestForwardVideosForGrokGenerationUsesXAIVideosGenerationsAndBearerToken(t 
 	require.Equal(t, "grok-imagine-video", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Equal(t, "a cat walking", gjson.GetBytes(upstream.lastBody, "prompt").String())
 	require.Equal(t, "video_req_123", gjson.Get(recorder.Body.String(), "request_id").String())
+}
+
+func TestForwardVideosForGrokGenerationAcceptsSDKImageURLField(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-video","prompt":"animate it","image_url":"https://example.test/still.png","duration":5}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIVideosRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          63,
+		Name:        "grok-video-image-url",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "xai-key",
+			"base_url": "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"request_id":"video_req_123"}`)),
+	}}
+	svc.httpUpstream = upstream
+
+	_, err = svc.ForwardVideos(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, "https://example.test/still.png", gjson.GetBytes(upstream.lastBody, "image.url").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "image_url").Exists())
+}
+
+func TestForwardVideosForGrokGenerationAcceptsSDKReferenceImageURLsField(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-video","prompt":"use references","reference_image_urls":["https://example.test/a.png","data:image/png;base64,Yg=="],"duration":10}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIVideosRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          64,
+		Name:        "grok-video-reference-images",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token": "access-token",
+			"expires_at":   time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			"base_url":     "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"request_id":"video_req_123"}`)),
+	}}
+	svc.httpUpstream = upstream
+
+	_, err = svc.ForwardVideos(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(gjson.GetBytes(upstream.lastBody, "reference_images").Array()))
+	require.Equal(t, "https://example.test/a.png", gjson.GetBytes(upstream.lastBody, "reference_images.0.url").String())
+	require.Equal(t, "data:image/png;base64,Yg==", gjson.GetBytes(upstream.lastBody, "reference_images.1.url").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "reference_image_urls").Exists())
+}
+
+func TestForwardVideosForGrokEditAndExtensionAcceptSDKVideoURLField(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	for _, tc := range []struct {
+		name string
+		path string
+	}{
+		{name: "edit", path: "/v1/videos/edits"},
+		{name: "extension", path: "/v1/videos/extensions"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			body := []byte(`{"model":"grok-imagine-video","prompt":"change it","video_url":"https://example.test/source.mp4","duration":6}`)
+			c.Request = httptest.NewRequest(http.MethodPost, tc.path, bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			svc := &OpenAIGatewayService{}
+			parsed, err := svc.ParseOpenAIVideosRequest(c, body)
+			require.NoError(t, err)
+
+			account := &Account{
+				ID:          65,
+				Name:        "grok-video-url",
+				Platform:    PlatformGrok,
+				Type:        AccountTypeAPIKey,
+				Concurrency: 1,
+				Credentials: map[string]any{
+					"api_key":  "xai-key",
+					"base_url": "https://xai.test/v1",
+				},
+			}
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"request_id":"video_req_123"}`)),
+			}}
+			svc.httpUpstream = upstream
+
+			_, err = svc.ForwardVideos(context.Background(), c, account, body, parsed, "")
+			require.NoError(t, err)
+			require.Equal(t, "https://example.test/source.mp4", gjson.GetBytes(upstream.lastBody, "video.url").String())
+			require.False(t, gjson.GetBytes(upstream.lastBody, "video_url").Exists())
+		})
+	}
 }
 
 func TestForwardVideosForGrokStatusUsesXAIVideosRequestID(t *testing.T) {

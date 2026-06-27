@@ -198,6 +198,8 @@ func normalizeGrokImageEditsPayload(payload map[string]any, imageURLs []string) 
 		}
 		payload["image"] = image
 		delete(payload, "images")
+		delete(payload, "image_url")
+		delete(payload, "image_urls")
 		return nil
 	}
 
@@ -213,6 +215,8 @@ func normalizeGrokImageEditsPayload(payload map[string]any, imageURLs []string) 
 		return fmt.Errorf("grok image edits endpoint requires at least one image input")
 	}
 	delete(payload, "images")
+	delete(payload, "image_url")
+	delete(payload, "image_urls")
 	if len(refs) == 1 {
 		payload["image"] = refs[0]
 		return nil

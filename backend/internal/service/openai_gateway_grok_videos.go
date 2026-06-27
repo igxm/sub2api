@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,7 +43,7 @@ func (s *OpenAIGatewayService) forwardGrokVideos(
 			return nil, fmt.Errorf("grok videos endpoint requires a grok video model, got %q", upstreamModel)
 		}
 		var err error
-		forwardBody, forwardContentType, err = rewriteOpenAIImagesModel(body, "application/json", upstreamModel)
+		forwardBody, forwardContentType, err = rewriteGrokVideosBody(body, upstreamModel)
 		if err != nil {
 			return nil, err
 		}
@@ -153,6 +154,67 @@ func buildGrokVideosRequest(ctx context.Context, account *Account, parsed *OpenA
 	}
 	req.Header.Set("User-Agent", "sub2api-grok-videos/1.0")
 	return req, nil
+}
+
+func rewriteGrokVideosBody(body []byte, upstreamModel string) ([]byte, string, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, "", fmt.Errorf("parse grok video body: %w", err)
+	}
+	payload["model"] = upstreamModel
+	normalizeGrokVideoSDKFields(payload)
+	rewritten, err := json.Marshal(payload)
+	if err != nil {
+		return nil, "", fmt.Errorf("rewrite grok video body: %w", err)
+	}
+	return rewritten, "application/json", nil
+}
+
+func normalizeGrokVideoSDKFields(payload map[string]any) {
+	if payload == nil {
+		return
+	}
+	if _, exists := payload["image"]; !exists {
+		if imageURL := strings.TrimSpace(grokVideoStringFromAny(payload["image_url"])); imageURL != "" {
+			payload["image"] = map[string]any{"url": imageURL}
+		}
+	}
+	delete(payload, "image_url")
+
+	if _, exists := payload["reference_images"]; !exists {
+		if refs := imageRefsFromAny(payload["reference_image_urls"]); len(refs) > 0 {
+			payload["reference_images"] = refs
+		}
+	}
+	delete(payload, "reference_image_urls")
+
+	if _, exists := payload["video"]; !exists {
+		if videoURL := strings.TrimSpace(grokVideoStringFromAny(payload["video_url"])); videoURL != "" {
+			payload["video"] = map[string]any{"url": videoURL}
+		}
+	}
+	delete(payload, "video_url")
+}
+
+func imageRefsFromAny(raw any) []map[string]any {
+	values, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	refs := make([]map[string]any, 0, len(values))
+	for _, value := range values {
+		url := strings.TrimSpace(grokVideoStringFromAny(value))
+		if url == "" {
+			continue
+		}
+		refs = append(refs, map[string]any{"url": url})
+	}
+	return refs
+}
+
+func grokVideoStringFromAny(raw any) string {
+	value, _ := raw.(string)
+	return value
 }
 
 func grokVideosTargetURL(baseURL string, parsed *OpenAIVideosRequest) (string, error) {
