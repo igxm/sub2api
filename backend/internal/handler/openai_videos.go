@@ -304,35 +304,37 @@ func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
-		upstreamModel := ""
-		if result != nil {
-			upstreamModel = result.UpstreamModel
-		}
-		h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
-			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-				Result:             result,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      h.apiKeyService,
-				ChannelUsageFields: channelMapping.ToUsageFields(requestModel, upstreamModel),
-			}); err != nil {
-				logger.L().With(
-					zap.String("component", "handler.openai_gateway.videos"),
-					zap.Int64("user_id", subject.UserID),
-					zap.Int64("api_key_id", apiKey.ID),
-					zap.Any("group_id", apiKey.GroupID),
-					zap.String("model", requestModel),
-					zap.Int64("account_id", account.ID),
-				).Error("openai.videos.record_usage_failed", zap.Error(err))
+		if shouldRecordOpenAIVideosUsage(parsed) {
+			upstreamModel := ""
+			if result != nil {
+				upstreamModel = result.UpstreamModel
 			}
-		})
+			h.submitMandatoryUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+				if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
+					Result:             result,
+					APIKey:             apiKey,
+					User:               apiKey.User,
+					Account:            account,
+					Subscription:       subscription,
+					InboundEndpoint:    inboundEndpoint,
+					UpstreamEndpoint:   upstreamEndpoint,
+					UserAgent:          userAgent,
+					IPAddress:          clientIP,
+					RequestPayloadHash: requestPayloadHash,
+					APIKeyService:      h.apiKeyService,
+					ChannelUsageFields: channelMapping.ToUsageFields(requestModel, upstreamModel),
+				}); err != nil {
+					logger.L().With(
+						zap.String("component", "handler.openai_gateway.videos"),
+						zap.Int64("user_id", subject.UserID),
+						zap.Int64("api_key_id", apiKey.ID),
+						zap.Any("group_id", apiKey.GroupID),
+						zap.String("model", requestModel),
+						zap.Int64("account_id", account.ID),
+					).Error("openai.videos.record_usage_failed", zap.Error(err))
+				}
+			})
+		}
 
 		reqLog.Debug("openai.videos.request_completed",
 			zap.Int64("account_id", account.ID),
@@ -340,4 +342,8 @@ func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 		)
 		return
 	}
+}
+
+func shouldRecordOpenAIVideosUsage(parsed *service.OpenAIVideosRequest) bool {
+	return parsed != nil && !parsed.IsResult()
 }
