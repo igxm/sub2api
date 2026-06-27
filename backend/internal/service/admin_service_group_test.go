@@ -174,6 +174,31 @@ func TestAdminService_CreateGroup_WithImagePricing(t *testing.T) {
 	require.InDelta(t, 0.30, *repo.created.ImagePrice4K, 0.0001)
 }
 
+func TestAdminService_CreateGroup_WithVideoGenerationControl(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	videoPricePerSecond := 0.02
+	input := &CreateGroupInput{
+		Name:                 "grok-media",
+		Description:          "Grok media group",
+		Platform:             PlatformGrok,
+		RateMultiplier:       1.0,
+		AllowImageGeneration: true,
+		AllowVideoGeneration: true,
+		VideoPricePerSecond:  &videoPricePerSecond,
+	}
+
+	group, err := svc.CreateGroup(context.Background(), input)
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.created)
+	require.True(t, repo.created.AllowImageGeneration)
+	require.True(t, repo.created.AllowVideoGeneration)
+	require.NotNil(t, repo.created.VideoPricePerSecond)
+	require.InDelta(t, 0.02, *repo.created.VideoPricePerSecond, 0.0001)
+}
+
 // TestAdminService_CreateGroup_NilImagePricing 测试 ImagePrice 为 nil 时正常创建
 func TestAdminService_CreateGroup_NilImagePricing(t *testing.T) {
 	repo := &groupRepoStubForAdmin{}
@@ -231,6 +256,34 @@ func TestAdminService_UpdateGroup_WithImagePricing(t *testing.T) {
 	require.InDelta(t, 0.12, *repo.updated.ImagePrice1K, 0.0001)
 	require.InDelta(t, 0.18, *repo.updated.ImagePrice2K, 0.0001)
 	require.InDelta(t, 0.36, *repo.updated.ImagePrice4K, 0.0001)
+}
+
+func TestAdminService_UpdateGroup_WithVideoGenerationControl(t *testing.T) {
+	existingGroup := &Group{
+		ID:                   1,
+		Name:                 "grok-media",
+		Platform:             PlatformGrok,
+		Status:               StatusActive,
+		AllowImageGeneration: true,
+		AllowVideoGeneration: false,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existingGroup}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	allowVideo := true
+	videoPricePerSecond := 0.03
+	input := &UpdateGroupInput{
+		AllowVideoGeneration: &allowVideo,
+		VideoPricePerSecond:  &videoPricePerSecond,
+	}
+
+	group, err := svc.UpdateGroup(context.Background(), 1, input)
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.updated)
+	require.True(t, repo.updated.AllowVideoGeneration)
+	require.NotNil(t, repo.updated.VideoPricePerSecond)
+	require.InDelta(t, 0.03, *repo.updated.VideoPricePerSecond, 0.0001)
 }
 
 // TestAdminService_UpdateGroup_PartialImagePricing 测试仅更新部分 ImagePrice 字段

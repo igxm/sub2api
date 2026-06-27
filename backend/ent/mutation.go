@@ -15069,6 +15069,9 @@ type GroupMutation struct {
 	default_validity_days                   *int
 	adddefault_validity_days                *int
 	allow_image_generation                  *bool
+	allow_video_generation                  *bool
+	video_price_per_second                  *float64
+	addvideo_price_per_second               *float64
 	image_rate_independent                  *bool
 	image_rate_multiplier                   *float64
 	addimage_rate_multiplier                *float64
@@ -15926,6 +15929,112 @@ func (m *GroupMutation) OldAllowImageGeneration(ctx context.Context) (v bool, er
 // ResetAllowImageGeneration resets all changes to the "allow_image_generation" field.
 func (m *GroupMutation) ResetAllowImageGeneration() {
 	m.allow_image_generation = nil
+}
+
+// SetAllowVideoGeneration sets the "allow_video_generation" field.
+func (m *GroupMutation) SetAllowVideoGeneration(b bool) {
+	m.allow_video_generation = &b
+}
+
+// AllowVideoGeneration returns the value of the "allow_video_generation" field in the mutation.
+func (m *GroupMutation) AllowVideoGeneration() (r bool, exists bool) {
+	v := m.allow_video_generation
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAllowVideoGeneration returns the old "allow_video_generation" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldAllowVideoGeneration(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAllowVideoGeneration is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAllowVideoGeneration requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAllowVideoGeneration: %w", err)
+	}
+	return oldValue.AllowVideoGeneration, nil
+}
+
+// ResetAllowVideoGeneration resets all changes to the "allow_video_generation" field.
+func (m *GroupMutation) ResetAllowVideoGeneration() {
+	m.allow_video_generation = nil
+}
+
+// SetVideoPricePerSecond sets the "video_price_per_second" field.
+func (m *GroupMutation) SetVideoPricePerSecond(f float64) {
+	m.video_price_per_second = &f
+	m.addvideo_price_per_second = nil
+}
+
+// VideoPricePerSecond returns the value of the "video_price_per_second" field in the mutation.
+func (m *GroupMutation) VideoPricePerSecond() (r float64, exists bool) {
+	v := m.video_price_per_second
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVideoPricePerSecond returns the old "video_price_per_second" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldVideoPricePerSecond(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVideoPricePerSecond is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVideoPricePerSecond requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVideoPricePerSecond: %w", err)
+	}
+	return oldValue.VideoPricePerSecond, nil
+}
+
+// AddVideoPricePerSecond adds f to the "video_price_per_second" field.
+func (m *GroupMutation) AddVideoPricePerSecond(f float64) {
+	if m.addvideo_price_per_second != nil {
+		*m.addvideo_price_per_second += f
+	} else {
+		m.addvideo_price_per_second = &f
+	}
+}
+
+// AddedVideoPricePerSecond returns the value that was added to the "video_price_per_second" field in this mutation.
+func (m *GroupMutation) AddedVideoPricePerSecond() (r float64, exists bool) {
+	v := m.addvideo_price_per_second
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearVideoPricePerSecond clears the value of the "video_price_per_second" field.
+func (m *GroupMutation) ClearVideoPricePerSecond() {
+	m.video_price_per_second = nil
+	m.addvideo_price_per_second = nil
+	m.clearedFields[group.FieldVideoPricePerSecond] = struct{}{}
+}
+
+// VideoPricePerSecondCleared returns if the "video_price_per_second" field was cleared in this mutation.
+func (m *GroupMutation) VideoPricePerSecondCleared() bool {
+	_, ok := m.clearedFields[group.FieldVideoPricePerSecond]
+	return ok
+}
+
+// ResetVideoPricePerSecond resets all changes to the "video_price_per_second" field.
+func (m *GroupMutation) ResetVideoPricePerSecond() {
+	m.video_price_per_second = nil
+	m.addvideo_price_per_second = nil
+	delete(m.clearedFields, group.FieldVideoPricePerSecond)
 }
 
 // SetImageRateIndependent sets the "image_rate_independent" field.
@@ -17264,7 +17373,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 35)
+	fields := make([]string, 0, 37)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -17309,6 +17418,12 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.allow_image_generation != nil {
 		fields = append(fields, group.FieldAllowImageGeneration)
+	}
+	if m.allow_video_generation != nil {
+		fields = append(fields, group.FieldAllowVideoGeneration)
+	}
+	if m.video_price_per_second != nil {
+		fields = append(fields, group.FieldVideoPricePerSecond)
 	}
 	if m.image_rate_independent != nil {
 		fields = append(fields, group.FieldImageRateIndependent)
@@ -17408,6 +17523,10 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.DefaultValidityDays()
 	case group.FieldAllowImageGeneration:
 		return m.AllowImageGeneration()
+	case group.FieldAllowVideoGeneration:
+		return m.AllowVideoGeneration()
+	case group.FieldVideoPricePerSecond:
+		return m.VideoPricePerSecond()
 	case group.FieldImageRateIndependent:
 		return m.ImageRateIndependent()
 	case group.FieldImageRateMultiplier:
@@ -17487,6 +17606,10 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDefaultValidityDays(ctx)
 	case group.FieldAllowImageGeneration:
 		return m.OldAllowImageGeneration(ctx)
+	case group.FieldAllowVideoGeneration:
+		return m.OldAllowVideoGeneration(ctx)
+	case group.FieldVideoPricePerSecond:
+		return m.OldVideoPricePerSecond(ctx)
 	case group.FieldImageRateIndependent:
 		return m.OldImageRateIndependent(ctx)
 	case group.FieldImageRateMultiplier:
@@ -17640,6 +17763,20 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAllowImageGeneration(v)
+		return nil
+	case group.FieldAllowVideoGeneration:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAllowVideoGeneration(v)
+		return nil
+	case group.FieldVideoPricePerSecond:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVideoPricePerSecond(v)
 		return nil
 	case group.FieldImageRateIndependent:
 		v, ok := value.(bool)
@@ -17804,6 +17941,9 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.adddefault_validity_days != nil {
 		fields = append(fields, group.FieldDefaultValidityDays)
 	}
+	if m.addvideo_price_per_second != nil {
+		fields = append(fields, group.FieldVideoPricePerSecond)
+	}
 	if m.addimage_rate_multiplier != nil {
 		fields = append(fields, group.FieldImageRateMultiplier)
 	}
@@ -17846,6 +17986,8 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedMonthlyLimitUsd()
 	case group.FieldDefaultValidityDays:
 		return m.AddedDefaultValidityDays()
+	case group.FieldVideoPricePerSecond:
+		return m.AddedVideoPricePerSecond()
 	case group.FieldImageRateMultiplier:
 		return m.AddedImageRateMultiplier()
 	case group.FieldImagePrice1k:
@@ -17905,6 +18047,13 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddDefaultValidityDays(v)
+		return nil
+	case group.FieldVideoPricePerSecond:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddVideoPricePerSecond(v)
 		return nil
 	case group.FieldImageRateMultiplier:
 		v, ok := value.(float64)
@@ -17985,6 +18134,9 @@ func (m *GroupMutation) ClearedFields() []string {
 	if m.FieldCleared(group.FieldMonthlyLimitUsd) {
 		fields = append(fields, group.FieldMonthlyLimitUsd)
 	}
+	if m.FieldCleared(group.FieldVideoPricePerSecond) {
+		fields = append(fields, group.FieldVideoPricePerSecond)
+	}
 	if m.FieldCleared(group.FieldImagePrice1k) {
 		fields = append(fields, group.FieldImagePrice1k)
 	}
@@ -18031,6 +18183,9 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldMonthlyLimitUsd:
 		m.ClearMonthlyLimitUsd()
+		return nil
+	case group.FieldVideoPricePerSecond:
+		m.ClearVideoPricePerSecond()
 		return nil
 	case group.FieldImagePrice1k:
 		m.ClearImagePrice1k()
@@ -18102,6 +18257,12 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldAllowImageGeneration:
 		m.ResetAllowImageGeneration()
+		return nil
+	case group.FieldAllowVideoGeneration:
+		m.ResetAllowVideoGeneration()
+		return nil
+	case group.FieldVideoPricePerSecond:
+		m.ResetVideoPricePerSecond()
 		return nil
 	case group.FieldImageRateIndependent:
 		m.ResetImageRateIndependent()

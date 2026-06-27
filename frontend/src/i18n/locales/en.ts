@@ -2250,6 +2250,13 @@ export default {
         finalPricePreview: 'Final per-image price preview',
         notConfigured: 'Not configured'
       },
+      videoPricing: {
+        title: 'Video Generation Pricing',
+        description: 'Configure video generation access and per-second duration pricing. Leave empty to record zero cost.',
+        allowVideoGeneration: 'Allow video generation for this group',
+        pricePerSecond: 'Video price per second (USD)',
+        modeHint: 'Video cost = price per second × request duration. Requests without duration default to 5 seconds.'
+      },
       modelsList: {
         title: 'Custom /v1/models Model List',
         hint: 'Only changes the /v1/models response. Whitelist model calls and account routing are unchanged.',

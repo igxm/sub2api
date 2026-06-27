@@ -104,23 +104,79 @@ func (p *GrokTokenProvider) GetAccessToken(ctx context.Context, account *Account
 				return "", errors.New("access_token not found after version check")
 			}
 		} else {
-			ttl := 30 * time.Minute
-			if expiresAt != nil {
-				until := time.Until(*expiresAt)
-				switch {
-				case until > grokTokenCacheSkew:
-					ttl = until - grokTokenCacheSkew
-				case until > 0:
-					ttl = until
-				default:
-					ttl = time.Minute
-				}
-			}
-			_ = p.tokenCache.SetAccessToken(ctx, cacheKey, accessToken, ttl)
+			p.cacheAccessToken(ctx, cacheKey, accessToken, expiresAt)
 		}
 	}
 
 	return accessToken, nil
+}
+
+func (p *GrokTokenProvider) ForceRefreshAccessToken(ctx context.Context, account *Account) (string, error) {
+	if account == nil {
+		return "", errors.New("account is nil")
+	}
+	if account.Platform != PlatformGrok || account.Type != AccountTypeOAuth {
+		return "", errors.New("not a grok oauth account")
+	}
+	if strings.TrimSpace(account.GetGrokRefreshToken()) == "" {
+		return "", errors.New("grok refresh_token is missing")
+	}
+	if p.refreshAPI == nil || p.executor == nil {
+		return "", errors.New("grok oauth refresh is not configured")
+	}
+
+	cacheKey := GrokTokenCacheKey(account)
+	if p.tokenCache != nil {
+		_ = p.tokenCache.DeleteAccessToken(ctx, cacheKey)
+	}
+
+	refreshCtx, cancel := context.WithTimeout(ctx, grokRequestRefreshTimeout)
+	defer cancel()
+	result, err := p.refreshAPI.RefreshNow(refreshCtx, account, p.executor)
+	if err != nil {
+		p.markTempUnschedulable(account, err)
+		return "", err
+	}
+	if result != nil && result.LockHeld {
+		return "", errors.New("grok token refresh already in progress")
+	}
+
+	refreshedAccount := account
+	if result != nil && result.Account != nil {
+		refreshedAccount = result.Account
+	}
+	accessToken := strings.TrimSpace(refreshedAccount.GetGrokAccessToken())
+	if accessToken == "" && result != nil && result.NewCredentials != nil {
+		accessToken, _ = result.NewCredentials["access_token"].(string)
+		accessToken = strings.TrimSpace(accessToken)
+	}
+	if accessToken == "" {
+		return "", errors.New("access_token not found after grok token refresh")
+	}
+
+	if p.tokenCache != nil {
+		p.cacheAccessToken(ctx, cacheKey, accessToken, refreshedAccount.GetCredentialAsTime("expires_at"))
+	}
+	return accessToken, nil
+}
+
+func (p *GrokTokenProvider) cacheAccessToken(ctx context.Context, cacheKey string, accessToken string, expiresAt *time.Time) {
+	if p == nil || p.tokenCache == nil || strings.TrimSpace(accessToken) == "" {
+		return
+	}
+	ttl := 30 * time.Minute
+	if expiresAt != nil {
+		until := time.Until(*expiresAt)
+		switch {
+		case until > grokTokenCacheSkew:
+			ttl = until - grokTokenCacheSkew
+		case until > 0:
+			ttl = until
+		default:
+			ttl = time.Minute
+		}
+	}
+	_ = p.tokenCache.SetAccessToken(ctx, cacheKey, accessToken, ttl)
 }
 
 func (p *GrokTokenProvider) markTempUnschedulable(account *Account, refreshErr error) {

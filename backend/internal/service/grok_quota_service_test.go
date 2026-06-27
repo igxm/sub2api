@@ -17,11 +17,12 @@ import (
 
 type grokQuotaAccountRepo struct {
 	*mockAccountRepoForPlatform
-	updates               map[int64]map[string]any
-	tempUnschedCalls      int
-	lastTempUnschedID     int64
-	lastTempUnschedUntil  time.Time
-	lastTempUnschedReason string
+	updates                map[int64]map[string]any
+	updateCredentialsCalls int
+	tempUnschedCalls       int
+	lastTempUnschedID      int64
+	lastTempUnschedUntil   time.Time
+	lastTempUnschedReason  string
 }
 
 func (r *grokQuotaAccountRepo) UpdateExtra(_ context.Context, id int64, updates map[string]any) error {
@@ -29,6 +30,16 @@ func (r *grokQuotaAccountRepo) UpdateExtra(_ context.Context, id int64, updates 
 		r.updates = make(map[int64]map[string]any)
 	}
 	r.updates[id] = updates
+	return nil
+}
+
+func (r *grokQuotaAccountRepo) UpdateCredentials(_ context.Context, id int64, credentials map[string]any) error {
+	r.updateCredentialsCalls++
+	if r.mockAccountRepoForPlatform != nil && r.accountsByID != nil {
+		if acc, ok := r.accountsByID[id]; ok && acc != nil {
+			acc.Credentials = cloneCredentials(credentials)
+		}
+	}
 	return nil
 }
 
@@ -96,9 +107,69 @@ func TestGrokQuotaServiceProbeUsageStoresHeaders(t *testing.T) {
 	require.EqualValues(t, 7, *result.Snapshot.Requests.Remaining)
 	require.Equal(t, "https://api.x.ai/v1/responses", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer access-token", upstream.lastReq.Header.Get("Authorization"))
+	require.Contains(t, string(upstream.lastBody), `"model":"grok-4.3"`)
 	require.Contains(t, string(upstream.lastBody), `"max_output_tokens":1`)
 	require.Contains(t, string(upstream.lastBody), `"store":false`)
 	require.NotNil(t, repo.updates[42][grokQuotaSnapshotExtraKey])
+}
+
+func TestGrokQuotaServiceProbeUsageRefreshesAndRetriesInvalidBearerToken(t *testing.T) {
+	t.Setenv(xai.EnvBaseURL, xai.DefaultCLIBaseURL)
+
+	account := &Account{
+		ID:          47,
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":  "invalid-access-token",
+			"refresh_token": "refresh-token",
+			"expires_at":    time.Now().Add(4 * time.Hour).UTC().Format(time.RFC3339),
+			"base_url":      xai.DefaultCLIBaseURL,
+			"client_id":     "client-id",
+		},
+	}
+	repo := &grokQuotaAccountRepo{
+		mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
+			accountsByID: map[int64]*Account{47: account},
+		},
+	}
+	cache := &grokTokenCacheForProviderTest{lockResult: true}
+	oauthSvc := NewGrokOAuthService(nil, &grokOAuthClientStub{
+		refreshResponse: &xai.TokenResponse{
+			AccessToken: "new-access-token",
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+		},
+	})
+	defer oauthSvc.Stop()
+	tokenProvider := NewGrokTokenProvider(repo, cache)
+	tokenProvider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), NewGrokTokenRefresher(oauthSvc))
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		{
+			StatusCode: http.StatusUnauthorized,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"type":"error","error":{"type":"authentication_error","message":"Invalid bearer token"}}`)),
+		},
+		{
+			StatusCode: http.StatusOK,
+			Header: http.Header{
+				"X-Ratelimit-Limit-Requests":     []string{"10"},
+				"X-Ratelimit-Remaining-Requests": []string{"9"},
+			},
+			Body: io.NopCloser(strings.NewReader(`{"id":"resp_probe"}`)),
+		},
+	}}
+	svc := NewGrokQuotaService(repo, nil, tokenProvider, upstream)
+
+	result, err := svc.ProbeUsage(context.Background(), 47)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, result.StatusCode)
+	require.Len(t, upstream.requests, 2)
+	require.Equal(t, "Bearer invalid-access-token", upstream.requests[0].Header.Get("Authorization"))
+	require.Equal(t, "Bearer new-access-token", upstream.requests[1].Header.Get("Authorization"))
+	require.Equal(t, 1, repo.updateCredentialsCalls)
+	require.Equal(t, "new-access-token", repo.accountsByID[47].GetGrokAccessToken())
 }
 
 func TestGrokQuotaServiceProbeUsageLoadsProxyWhenAccountEdgeMissing(t *testing.T) {

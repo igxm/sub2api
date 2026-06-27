@@ -175,6 +175,20 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if err != nil {
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
+	if account.Platform == PlatformGrok {
+		if resp, err = s.retryGrokOAuthUnauthorized(ctx, account, resp, proxyURL, func(token string) (*http.Request, error) {
+			retryReq, reqErr := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(upstreamBody))
+			if reqErr != nil {
+				return nil, fmt.Errorf("build upstream retry request: %w", reqErr)
+			}
+			retryReq = retryReq.WithContext(WithHTTPUpstreamProfile(retryReq.Context(), HTTPUpstreamProfileOpenAI))
+			retryReq.Header = upstreamReq.Header.Clone()
+			retryReq.Header.Set("Authorization", "Bearer "+token)
+			return retryReq, nil
+		}); err != nil {
+			return nil, err
+		}
+	}
 	defer func() { _ = resp.Body.Close() }()
 
 	// 7. Handle error response with failover

@@ -77,6 +77,14 @@ func (Group) Fields() []ent.Field {
 		field.Bool("allow_image_generation").
 			Default(false).
 			Comment("是否允许该分组使用图片生成能力"),
+		field.Bool("allow_video_generation").
+			Default(false).
+			Comment("是否允许该分组使用视频生成能力"),
+		field.Float("video_price_per_second").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Comment("视频生成每秒价格；未配置时视频生成按 0 成本记录"),
 		field.Bool("image_rate_independent").
 			Default(false).
 			Comment("图片生成是否使用独立倍率；false 表示共享分组有效倍率"),

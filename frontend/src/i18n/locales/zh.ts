@@ -2332,6 +2332,13 @@ export default {
         finalPricePreview: '最终单张价格预览',
         notConfigured: '未配置'
       },
+      videoPricing: {
+        title: '视频生成计费',
+        description: '配置视频生成能力和按时长计费的每秒价格，留空则按 0 成本记录',
+        allowVideoGeneration: '允许当前分组生成视频',
+        pricePerSecond: '视频每秒价格（USD）',
+        modeHint: '视频费用 = 视频每秒价格 × 请求 duration；未传 duration 时默认按 5 秒计算。'
+      },
       modelsList: {
         title: '自定义 /v1/models 模型列表',
         hint: '仅影响 /v1/models 展示结果，不影响白名单模型调用和账号调度。',

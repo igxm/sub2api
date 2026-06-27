@@ -46,6 +46,10 @@ const (
 	FieldDefaultValidityDays = "default_validity_days"
 	// FieldAllowImageGeneration holds the string denoting the allow_image_generation field in the database.
 	FieldAllowImageGeneration = "allow_image_generation"
+	// FieldAllowVideoGeneration holds the string denoting the allow_video_generation field in the database.
+	FieldAllowVideoGeneration = "allow_video_generation"
+	// FieldVideoPricePerSecond holds the string denoting the video_price_per_second field in the database.
+	FieldVideoPricePerSecond = "video_price_per_second"
 	// FieldImageRateIndependent holds the string denoting the image_rate_independent field in the database.
 	FieldImageRateIndependent = "image_rate_independent"
 	// FieldImageRateMultiplier holds the string denoting the image_rate_multiplier field in the database.
@@ -176,6 +180,8 @@ var Columns = []string{
 	FieldMonthlyLimitUsd,
 	FieldDefaultValidityDays,
 	FieldAllowImageGeneration,
+	FieldAllowVideoGeneration,
+	FieldVideoPricePerSecond,
 	FieldImageRateIndependent,
 	FieldImageRateMultiplier,
 	FieldImagePrice1k,
@@ -253,6 +259,8 @@ var (
 	DefaultDefaultValidityDays int
 	// DefaultAllowImageGeneration holds the default value on creation for the "allow_image_generation" field.
 	DefaultAllowImageGeneration bool
+	// DefaultAllowVideoGeneration holds the default value on creation for the "allow_video_generation" field.
+	DefaultAllowVideoGeneration bool
 	// DefaultImageRateIndependent holds the default value on creation for the "image_rate_independent" field.
 	DefaultImageRateIndependent bool
 	// DefaultImageRateMultiplier holds the default value on creation for the "image_rate_multiplier" field.
@@ -366,6 +374,16 @@ func ByDefaultValidityDays(opts ...sql.OrderTermOption) OrderOption {
 // ByAllowImageGeneration orders the results by the allow_image_generation field.
 func ByAllowImageGeneration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAllowImageGeneration, opts...).ToFunc()
+}
+
+// ByAllowVideoGeneration orders the results by the allow_video_generation field.
+func ByAllowVideoGeneration(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAllowVideoGeneration, opts...).ToFunc()
+}
+
+// ByVideoPricePerSecond orders the results by the video_price_per_second field.
+func ByVideoPricePerSecond(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVideoPricePerSecond, opts...).ToFunc()
 }
 
 // ByImageRateIndependent orders the results by the image_rate_independent field.

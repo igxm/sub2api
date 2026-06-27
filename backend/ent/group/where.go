@@ -130,6 +130,16 @@ func AllowImageGeneration(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldAllowImageGeneration, v))
 }
 
+// AllowVideoGeneration applies equality check predicate on the "allow_video_generation" field. It's identical to AllowVideoGenerationEQ.
+func AllowVideoGeneration(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAllowVideoGeneration, v))
+}
+
+// VideoPricePerSecond applies equality check predicate on the "video_price_per_second" field. It's identical to VideoPricePerSecondEQ.
+func VideoPricePerSecond(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldVideoPricePerSecond, v))
+}
+
 // ImageRateIndependent applies equality check predicate on the "image_rate_independent" field. It's identical to ImageRateIndependentEQ.
 func ImageRateIndependent(v bool) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldImageRateIndependent, v))
@@ -923,6 +933,66 @@ func AllowImageGenerationEQ(v bool) predicate.Group {
 // AllowImageGenerationNEQ applies the NEQ predicate on the "allow_image_generation" field.
 func AllowImageGenerationNEQ(v bool) predicate.Group {
 	return predicate.Group(sql.FieldNEQ(FieldAllowImageGeneration, v))
+}
+
+// AllowVideoGenerationEQ applies the EQ predicate on the "allow_video_generation" field.
+func AllowVideoGenerationEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAllowVideoGeneration, v))
+}
+
+// AllowVideoGenerationNEQ applies the NEQ predicate on the "allow_video_generation" field.
+func AllowVideoGenerationNEQ(v bool) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldAllowVideoGeneration, v))
+}
+
+// VideoPricePerSecondEQ applies the EQ predicate on the "video_price_per_second" field.
+func VideoPricePerSecondEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldVideoPricePerSecond, v))
+}
+
+// VideoPricePerSecondNEQ applies the NEQ predicate on the "video_price_per_second" field.
+func VideoPricePerSecondNEQ(v float64) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldVideoPricePerSecond, v))
+}
+
+// VideoPricePerSecondIn applies the In predicate on the "video_price_per_second" field.
+func VideoPricePerSecondIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldVideoPricePerSecond, vs...))
+}
+
+// VideoPricePerSecondNotIn applies the NotIn predicate on the "video_price_per_second" field.
+func VideoPricePerSecondNotIn(vs ...float64) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldVideoPricePerSecond, vs...))
+}
+
+// VideoPricePerSecondGT applies the GT predicate on the "video_price_per_second" field.
+func VideoPricePerSecondGT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldVideoPricePerSecond, v))
+}
+
+// VideoPricePerSecondGTE applies the GTE predicate on the "video_price_per_second" field.
+func VideoPricePerSecondGTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldVideoPricePerSecond, v))
+}
+
+// VideoPricePerSecondLT applies the LT predicate on the "video_price_per_second" field.
+func VideoPricePerSecondLT(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldVideoPricePerSecond, v))
+}
+
+// VideoPricePerSecondLTE applies the LTE predicate on the "video_price_per_second" field.
+func VideoPricePerSecondLTE(v float64) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldVideoPricePerSecond, v))
+}
+
+// VideoPricePerSecondIsNil applies the IsNil predicate on the "video_price_per_second" field.
+func VideoPricePerSecondIsNil() predicate.Group {
+	return predicate.Group(sql.FieldIsNull(FieldVideoPricePerSecond))
+}
+
+// VideoPricePerSecondNotNil applies the NotNil predicate on the "video_price_per_second" field.
+func VideoPricePerSecondNotNil() predicate.Group {
+	return predicate.Group(sql.FieldNotNull(FieldVideoPricePerSecond))
 }
 
 // ImageRateIndependentEQ applies the EQ predicate on the "image_rate_independent" field.

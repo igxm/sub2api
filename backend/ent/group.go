@@ -49,6 +49,10 @@ type Group struct {
 	DefaultValidityDays int `json:"default_validity_days,omitempty"`
 	// 是否允许该分组使用图片生成能力
 	AllowImageGeneration bool `json:"allow_image_generation,omitempty"`
+	// 是否允许该分组使用视频生成能力
+	AllowVideoGeneration bool `json:"allow_video_generation,omitempty"`
+	// 视频生成每秒价格；未配置时视频生成按 0 成本记录
+	VideoPricePerSecond *float64 `json:"video_price_per_second,omitempty"`
 	// 图片生成是否使用独立倍率；false 表示共享分组有效倍率
 	ImageRateIndependent bool `json:"image_rate_independent,omitempty"`
 	// 图片生成独立倍率，仅 image_rate_independent=true 时生效
@@ -197,9 +201,9 @@ func (*Group) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case group.FieldModelRouting, group.FieldSupportedModelScopes, group.FieldMessagesDispatchModelConfig, group.FieldModelsListConfig:
 			values[i] = new([]byte)
-		case group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet:
+		case group.FieldIsExclusive, group.FieldAllowImageGeneration, group.FieldAllowVideoGeneration, group.FieldImageRateIndependent, group.FieldClaudeCodeOnly, group.FieldModelRoutingEnabled, group.FieldMcpXMLInject, group.FieldAllowMessagesDispatch, group.FieldRequireOauthOnly, group.FieldRequirePrivacySet:
 			values[i] = new(sql.NullBool)
-		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
+		case group.FieldRateMultiplier, group.FieldDailyLimitUsd, group.FieldWeeklyLimitUsd, group.FieldMonthlyLimitUsd, group.FieldVideoPricePerSecond, group.FieldImageRateMultiplier, group.FieldImagePrice1k, group.FieldImagePrice2k, group.FieldImagePrice4k:
 			values[i] = new(sql.NullFloat64)
 		case group.FieldID, group.FieldDefaultValidityDays, group.FieldFallbackGroupID, group.FieldFallbackGroupIDOnInvalidRequest, group.FieldSortOrder, group.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
@@ -322,6 +326,19 @@ func (_m *Group) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field allow_image_generation", values[i])
 			} else if value.Valid {
 				_m.AllowImageGeneration = value.Bool
+			}
+		case group.FieldAllowVideoGeneration:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field allow_video_generation", values[i])
+			} else if value.Valid {
+				_m.AllowVideoGeneration = value.Bool
+			}
+		case group.FieldVideoPricePerSecond:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field video_price_per_second", values[i])
+			} else if value.Valid {
+				_m.VideoPricePerSecond = new(float64)
+				*_m.VideoPricePerSecond = value.Float64
 			}
 		case group.FieldImageRateIndependent:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -586,6 +603,14 @@ func (_m *Group) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("allow_image_generation=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AllowImageGeneration))
+	builder.WriteString(", ")
+	builder.WriteString("allow_video_generation=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AllowVideoGeneration))
+	builder.WriteString(", ")
+	if v := _m.VideoPricePerSecond; v != nil {
+		builder.WriteString("video_price_per_second=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("image_rate_independent=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ImageRateIndependent))

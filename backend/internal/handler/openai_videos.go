@@ -85,6 +85,12 @@ func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 		zap.String("request_id", parsed.RequestID),
 		zap.String("platform", videoPlatform),
 	)
+
+	if !parsed.IsResult() && !service.GroupAllowsVideoGeneration(apiKey.Group) {
+		h.errorResponse(c, http.StatusForbidden, "permission_error", service.VideoGenerationPermissionMessage())
+		return
+	}
+
 	setOpsRequestContext(c, requestModel, false)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(false, false)))
 
