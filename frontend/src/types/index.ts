@@ -1294,6 +1294,11 @@ export interface UsageLog {
   image_output_tokens: number
   image_output_cost: number
 
+  // 视频生成字段
+  video_duration_seconds: number
+  video_unit_price: number | null
+  video_cost: number
+
   // User-Agent
   user_agent: string | null
 

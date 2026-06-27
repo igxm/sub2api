@@ -28,6 +28,7 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per Request',
   'admin.usage.billingModeImage': 'Image',
+  'admin.usage.billingModeVideo': 'Per Second (Video)',
   'admin.usage.group': 'Group',
   'admin.usage.allGroups': 'All Groups',
   'common.refresh': 'Refresh',

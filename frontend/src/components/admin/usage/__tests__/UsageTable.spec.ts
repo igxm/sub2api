@@ -40,9 +40,14 @@ const messages: Record<string, string> = {
   'usage.imageSizeUnknown': 'unknown',
   'usage.imageUnitPrice': 'Per-image price',
   'usage.imageTotalPrice': 'Image total price',
+  'usage.videoDuration': 'Video duration',
+  'usage.videoUnitPrice': 'Per-second price',
+  'usage.videoTotalPrice': 'Video total price',
+  'usage.videoUnitSuffix': '/ second',
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'admin.usage.billingModeVideo': 'Per Second (Video)',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -320,6 +325,70 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('Per-image price')
     expect(text).toContain('not recorded')
     expect(text).not.toContain('(2K)')
+  })
+
+  it('shows video usage duration and per-second pricing instead of token pricing', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [
+          {
+            request_id: 'req-admin-video',
+            model: 'grok-imagine-video',
+            actual_cost: 0.1,
+            total_cost: 0.1,
+            account_rate_multiplier: 1,
+            rate_multiplier: 1,
+            service_tier: null,
+            input_cost: 0,
+            output_cost: 0,
+            cache_creation_cost: 0,
+            cache_read_cost: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_tokens: 0,
+            cache_read_tokens: 0,
+            cache_creation_5m_tokens: 0,
+            cache_creation_1h_tokens: 0,
+            cache_ttl_overridden: false,
+            billing_mode: 'video',
+            image_count: 0,
+            image_size: null,
+            image_input_size: null,
+            image_output_size: null,
+            image_size_source: null,
+            image_size_breakdown: null,
+            image_output_tokens: 0,
+            image_output_cost: 0,
+            video_duration_seconds: 5,
+            video_unit_price: 0.02,
+            video_cost: 0.1,
+          },
+        ],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    await wrapper.find('.group.relative').trigger('mouseenter')
+    await nextTick()
+
+    const text = wrapper.text()
+    expect(text).toContain('Per Second (Video)')
+    expect(text).toContain('5s')
+    expect(text).toContain('Video duration')
+    expect(text).toContain('Per-second price')
+    expect(text).toContain('Video total price')
+    expect(text).toContain('$0.020000 / second')
+    expect(text).toContain('$0.100000')
+    expect(text).not.toContain('/ 1M tokens')
   })
 })
 
