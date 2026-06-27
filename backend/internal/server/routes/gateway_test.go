@@ -83,6 +83,32 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 	}
 }
 
+func TestGatewayRoutesGrokVideosPathsAreRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformGrok)
+
+	for _, tc := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPost, "/v1/videos/generations", `{"model":"grok-imagine-video","prompt":"a cat","duration":5}`},
+		{http.MethodPost, "/v1/videos/edits", `{"model":"grok-imagine-video","prompt":"add rain","video":{"url":"https://example.test/in.mp4"}}`},
+		{http.MethodPost, "/v1/videos/extensions", `{"model":"grok-imagine-video","prompt":"continue","video":{"url":"https://example.test/in.mp4"}}`},
+		{http.MethodGet, "/v1/videos/req_123", ``},
+		{http.MethodPost, "/videos/generations", `{"model":"grok-imagine-video","prompt":"a cat","duration":5}`},
+		{http.MethodPost, "/videos/edits", `{"model":"grok-imagine-video","prompt":"add rain","video":{"url":"https://example.test/in.mp4"}}`},
+		{http.MethodPost, "/videos/extensions", `{"model":"grok-imagine-video","prompt":"continue","video":{"url":"https://example.test/in.mp4"}}`},
+		{http.MethodGet, "/videos/req_123", ``},
+	} {
+		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+		require.NotEqual(t, http.StatusNotFound, w.Code, "method=%s path=%s should hit video handler", tc.method, tc.path)
+	}
+}
+
 func TestGatewayRoutesGrokOnlyAllowsResponsesHTTP(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformGrok)
 

@@ -1260,6 +1260,20 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	return selection, decision, err
 }
 
+func (s *OpenAIGatewayService) SelectAccountWithSchedulerForVideos(
+	ctx context.Context,
+	groupID *int64,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	platform string,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	if strings.TrimSpace(platform) == "" {
+		platform = VideoGenerationPlatformForModel(requestedModel)
+	}
+	return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", "", false, platform)
+}
+
 func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	ctx context.Context,
 	groupID *int64,

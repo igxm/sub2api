@@ -445,6 +445,42 @@ func BuildImagesEditsURL(baseURL string) (string, error) {
 	return validatedBaseURL + "/images/edits", nil
 }
 
+func BuildVideosGenerationsURL(baseURL string) (string, error) {
+	validatedBaseURL, err := ValidatedBaseURL(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base url: %w", err)
+	}
+	return validatedBaseURL + "/videos/generations", nil
+}
+
+func BuildVideosEditsURL(baseURL string) (string, error) {
+	validatedBaseURL, err := ValidatedBaseURL(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base url: %w", err)
+	}
+	return validatedBaseURL + "/videos/edits", nil
+}
+
+func BuildVideosExtensionsURL(baseURL string) (string, error) {
+	validatedBaseURL, err := ValidatedBaseURL(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base url: %w", err)
+	}
+	return validatedBaseURL + "/videos/extensions", nil
+}
+
+func BuildVideoResultURL(baseURL string, requestID string) (string, error) {
+	validatedBaseURL, err := ValidatedBaseURL(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base url: %w", err)
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" || strings.Contains(requestID, "/") {
+		return "", fmt.Errorf("invalid video request id")
+	}
+	return validatedBaseURL + "/videos/" + requestID, nil
+}
+
 func BuildChatCompletionsURL(baseURL string) (string, error) {
 	validatedBaseURL, err := ValidatedBaseURL(baseURL)
 	if err != nil {
