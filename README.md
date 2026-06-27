@@ -199,7 +199,7 @@ One-click installation script that downloads pre-built binaries from GitHub Rele
 #### Installation Steps
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/igxm/sub2api/main/deploy/install.sh | sudo bash
 ```
 
 The script will:
@@ -249,7 +249,7 @@ sudo journalctl -u sub2api -f
 sudo systemctl restart sub2api
 
 # Uninstall
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
+curl -sSL https://raw.githubusercontent.com/igxm/sub2api/main/deploy/install.sh | sudo bash -s -- uninstall -y
 ```
 
 ---
@@ -272,7 +272,7 @@ Use the automated deployment script for easy setup:
 mkdir -p sub2api-deploy && cd sub2api-deploy
 
 # Download and run deployment preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/igxm/sub2api/main/deploy/docker-deploy.sh | bash
 
 # Start services
 docker compose up -d
@@ -294,7 +294,7 @@ If you prefer manual setup:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/igxm/sub2api.git
 cd sub2api/deploy
 
 # 2. Copy environment configuration
@@ -433,7 +433,7 @@ Build and run from source code for development or customization.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Wei-Shaw/sub2api.git
+git clone https://github.com/igxm/sub2api.git
 cd sub2api
 
 # 2. Install pnpm (if not already installed)
@@ -589,15 +589,19 @@ Simple Mode is designed for individual developers or internal teams who want qui
 
 ## Grok / xAI OAuth Support
 
-Sub2API supports Grok subscription accounts through xAI OAuth and forwards OpenAI-compatible Responses traffic to xAI.
+Sub2API supports Grok subscription accounts through xAI OAuth and forwards OpenAI-compatible Responses and media traffic to xAI.
 
 ### Supported Scope
 
 - Platform name: `grok`
 - Account type: OAuth subscription accounts
-- Public gateway target: `/v1/responses` and `/responses`, forwarded to `${XAI_BASE_URL:-https://api.x.ai/v1}/responses`
-- Initial models: `grok-4.3`, `grok-build-0.1`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, and `grok-4.20-multi-agent-0309`
-- Out of scope for this provider: public Grok Chat Completions routes, image, video, TTS, transcription, browser automation, cookies, and Grok web scraping
+- Text endpoints: `/v1/responses` and `/responses`, forwarded to `${XAI_BASE_URL:-https://api.x.ai/v1}/responses`
+- Image endpoints: `/v1/images/generations` and `/v1/images/edits`
+- Video endpoints: `/v1/videos/generations`, `/v1/videos/edits`, `/v1/videos/extensions`, and `/v1/videos/{request_id}`
+- Text models: `grok-4.3`, `grok-build-0.1`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, and `grok-4.20-multi-agent-0309`
+- Media models: `grok-imagine-image`, `grok-imagine-image-quality`, and `grok-imagine-video`
+- SDK-style media fields are supported for compatibility: image edits accept `image_url` and `image_urls`; video requests accept `image_url`, `reference_image_urls`, and `video_url`.
+- Out of scope for this provider: public Grok Chat Completions routes, TTS, transcription, browser automation, cookies, and Grok web scraping
 
 ### OAuth Configuration
 
