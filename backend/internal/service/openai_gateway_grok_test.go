@@ -306,6 +306,94 @@ func TestForwardImagesForGrokEditsSupportsMultipleReferenceImages(t *testing.T) 
 	require.Equal(t, "image_url", gjson.GetBytes(upstream.lastBody, "images.1.type").String())
 }
 
+func TestForwardVideosForGrokGenerationUsesXAIVideosGenerationsAndBearerToken(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-video-alias","prompt":"a cat walking","duration":5}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIVideosRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          59,
+		Name:        "grok-video",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token": "access-token",
+			"expires_at":   time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			"base_url":     "https://xai.test/v1",
+			"model_mapping": map[string]any{
+				"grok-video-alias": "grok-imagine-video",
+			},
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}, "Xai-Request-Id": []string{"xai-video-req"}},
+		Body:       io.NopCloser(strings.NewReader(`{"request_id":"video_req_123"}`)),
+	}}
+	svc.httpUpstream = upstream
+
+	result, err := svc.ForwardVideos(context.Background(), c, account, body, parsed, "grok-imagine-video")
+	require.NoError(t, err)
+	require.Equal(t, "grok-video-alias", result.Model)
+	require.Equal(t, "grok-imagine-video", result.UpstreamModel)
+	require.Equal(t, "xai-video-req", result.RequestID)
+	require.Equal(t, "https://xai.test/v1/videos/generations", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer access-token", upstream.lastReq.Header.Get("Authorization"))
+	require.Equal(t, "application/json", upstream.lastReq.Header.Get("Content-Type"))
+	require.Equal(t, "grok-imagine-video", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, "a cat walking", gjson.GetBytes(upstream.lastBody, "prompt").String())
+	require.Equal(t, "video_req_123", gjson.Get(recorder.Body.String(), "request_id").String())
+}
+
+func TestForwardVideosForGrokStatusUsesXAIVideosRequestID(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/videos/video_req_123", nil)
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIVideosRequest(c, nil)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          60,
+		Name:        "grok-video-status",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "xai-key",
+			"base_url": "https://xai.test/v1",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"status":"done","video":{"url":"https://example.test/out.mp4"}}`)),
+	}}
+	svc.httpUpstream = upstream
+
+	result, err := svc.ForwardVideos(context.Background(), c, account, nil, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, "video_req_123", result.RequestID)
+	require.Equal(t, "https://xai.test/v1/videos/video_req_123", upstream.lastReq.URL.String())
+	require.Equal(t, "Bearer xai-key", upstream.lastReq.Header.Get("Authorization"))
+	require.Empty(t, upstream.lastBody)
+	require.Equal(t, "done", gjson.Get(recorder.Body.String(), "status").String())
+}
+
 func TestForwardAsChatCompletionsForGrokUsesXAIChatCompletionsAndSnapshots(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
