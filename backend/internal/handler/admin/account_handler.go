@@ -25,6 +25,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -2061,6 +2062,36 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	if account.Platform == service.PlatformAntigravity {
 		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
 		response.Success(c, antigravity.DefaultModels())
+		return
+	}
+
+	if account.Platform == service.PlatformGrok {
+		mapping := account.GetModelMapping()
+		if len(mapping) == 0 {
+			response.Success(c, xai.DefaultModels())
+			return
+		}
+
+		var models []xai.Model
+		for requestedModel := range mapping {
+			var found bool
+			for _, dm := range xai.DefaultModels() {
+				if dm.ID == requestedModel {
+					models = append(models, dm)
+					found = true
+					break
+				}
+			}
+			if !found {
+				models = append(models, xai.Model{
+					ID:          requestedModel,
+					Object:      "model",
+					OwnedBy:     "xai",
+					DisplayName: requestedModel,
+				})
+			}
+		}
+		response.Success(c, models)
 		return
 	}
 

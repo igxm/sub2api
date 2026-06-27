@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
 	"github.com/imroc/req/v3"
@@ -274,18 +275,34 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.PartialImages = &v
 	}
 	if req.IsEdits() {
+		if image := gjson.GetBytes(body, "image"); image.Exists() {
+			if image.Type == gjson.String {
+				if imageURL := strings.TrimSpace(image.String()); imageURL != "" {
+					req.InputImageURLs = append(req.InputImageURLs, imageURL)
+				}
+			} else if image.IsObject() {
+				if imageURL := firstNonEmpty(strings.TrimSpace(image.Get("url").String()), strings.TrimSpace(image.Get("image_url").String())); imageURL != "" {
+					req.InputImageURLs = append(req.InputImageURLs, imageURL)
+				}
+				if image.Get("file_id").Exists() {
+					return fmt.Errorf("image.file_id is not supported (use image.url instead)")
+				}
+			} else {
+				return fmt.Errorf("invalid image field type")
+			}
+		}
 		images := gjson.GetBytes(body, "images")
 		if images.Exists() {
 			if !images.IsArray() {
 				return fmt.Errorf("invalid images field type")
 			}
 			for _, item := range images.Array() {
-				if imageURL := strings.TrimSpace(item.Get("image_url").String()); imageURL != "" {
+				if imageURL := firstNonEmpty(strings.TrimSpace(item.Get("image_url").String()), strings.TrimSpace(item.Get("url").String())); imageURL != "" {
 					req.InputImageURLs = append(req.InputImageURLs, imageURL)
 					continue
 				}
 				if item.Get("file_id").Exists() {
-					return fmt.Errorf("images[].file_id is not supported (use images[].image_url instead)")
+					return fmt.Errorf("images[].file_id is not supported (use images[].url instead)")
 				}
 			}
 		}
@@ -297,7 +314,7 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 			return fmt.Errorf("mask.file_id is not supported (use mask.image_url instead)")
 		}
 		if len(req.InputImageURLs) == 0 {
-			return fmt.Errorf("images[].image_url is required")
+			return fmt.Errorf("image.url is required")
 		}
 	}
 	req.HasNativeOptions = hasOpenAINativeImageOptions(func(path string) bool {
@@ -458,9 +475,16 @@ func isOpenAIImageGenerationModel(model string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-")
 }
 
+func ImageGenerationPlatformForModel(model string) string {
+	if xai.IsImageGenerationModel(model) {
+		return PlatformGrok
+	}
+	return PlatformOpenAI
+}
+
 func validateOpenAIImagesModel(model string) error {
 	model = strings.TrimSpace(model)
-	if isOpenAIImageGenerationModel(model) {
+	if isOpenAIImageGenerationModel(model) || xai.IsImageGenerationModel(model) {
 		return nil
 	}
 	if model == "" {
@@ -545,6 +569,9 @@ func (s *OpenAIGatewayService) ForwardImages(
 ) (*OpenAIForwardResult, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
+	}
+	if account.Platform == PlatformGrok {
+		return s.forwardGrokImages(ctx, c, account, body, parsed, channelMappedModel)
 	}
 	switch account.Type {
 	case AccountTypeAPIKey:

@@ -110,12 +110,23 @@ func TestGatewayRoutesGrokOnlyAllowsResponsesHTTP(t *testing.T) {
 		"/v1/responses",
 		"/responses",
 		"/backend-api/codex/responses",
+		"/v1/images/generations",
+		"/images/generations",
+		"/v1/images/edits",
+		"/images/edits",
 	} {
-		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"grok","input":"hi"}`))
+		body := `{"model":"grok","input":"hi"}`
+		if strings.Contains(path, "/images/generations") {
+			body = `{"model":"grok-imagine-image","prompt":"draw a cat"}`
+		}
+		if strings.Contains(path, "/images/edits") {
+			body = `{"model":"grok-imagine-image-quality","prompt":"make it a sketch","image":{"url":"https://example.test/cat.png","type":"image_url"}}`
+		}
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
-		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should still reach Responses handler", path)
+		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should still reach compatible handler", path)
 	}
 }

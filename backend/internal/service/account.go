@@ -1312,6 +1312,14 @@ func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapabilit
 	if capability == "" {
 		return true
 	}
+	if a.IsGrok() {
+		switch capability {
+		case OpenAIImagesCapabilityBasic, OpenAIImagesCapabilityNative:
+			return a.Type == AccountTypeOAuth || a.Type == AccountTypeAPIKey
+		default:
+			return true
+		}
+	}
 	if !a.IsOpenAI() {
 		return false
 	}
