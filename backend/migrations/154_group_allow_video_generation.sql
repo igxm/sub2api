@@ -1,0 +1,5 @@
+ALTER TABLE groups
+    ADD COLUMN IF NOT EXISTS allow_video_generation BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE groups
+    ADD COLUMN IF NOT EXISTS video_price_per_second DECIMAL(20, 8);

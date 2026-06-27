@@ -51,6 +51,15 @@ describe('useModelWhitelist', () => {
     expect(models.indexOf('gemini-2.5-flash-image')).toBeLessThan(models.indexOf('gemini-2.5-flash'))
   })
 
+  it('grok 模型列表包含 Imagine 图片和视频模型', () => {
+    const models = getModelsByPlatform('grok')
+
+    expect(models).toContain('grok-imagine-image')
+    expect(models).toContain('grok-imagine-image-quality')
+    expect(models).toContain('grok-imagine-video')
+    expect(models).toContain('grok-imagine-video-1.5')
+  })
+
   it('antigravity 模型列表会把新的 Gemini 图片模型排在前面', () => {
     const models = getModelsByPlatform('antigravity')
 

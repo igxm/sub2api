@@ -207,6 +207,8 @@ type CreateGroupInput struct {
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration bool
+	AllowVideoGeneration bool
+	VideoPricePerSecond  *float64
 	ImageRateIndependent bool
 	ImageRateMultiplier  *float64
 	ImagePrice1K         *float64
@@ -248,6 +250,8 @@ type UpdateGroupInput struct {
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration *bool
+	AllowVideoGeneration *bool
+	VideoPricePerSecond  *float64
 	ImageRateIndependent *bool
 	ImageRateMultiplier  *float64
 	ImagePrice1K         *float64
@@ -1823,6 +1827,10 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		}
 		imageRateMultiplier = *input.ImageRateMultiplier
 	}
+	if input.VideoPricePerSecond != nil && *input.VideoPricePerSecond < 0 {
+		return nil, errors.New("video_price_per_second must be >= 0")
+	}
+	videoPricePerSecond := normalizePrice(input.VideoPricePerSecond)
 
 	// 校验降级分组
 	if input.FallbackGroupID != nil {
@@ -1891,6 +1899,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		WeeklyLimitUSD:                  weeklyLimit,
 		MonthlyLimitUSD:                 monthlyLimit,
 		AllowImageGeneration:            input.AllowImageGeneration,
+		AllowVideoGeneration:            input.AllowVideoGeneration,
+		VideoPricePerSecond:             videoPricePerSecond,
 		ImageRateIndependent:            input.ImageRateIndependent,
 		ImageRateMultiplier:             imageRateMultiplier,
 		ImagePrice1K:                    imagePrice1K,
@@ -2072,6 +2082,15 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 图片生成计费配置：负数表示清除（使用默认价格）
 	if input.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *input.AllowImageGeneration
+	}
+	if input.AllowVideoGeneration != nil {
+		group.AllowVideoGeneration = *input.AllowVideoGeneration
+	}
+	if input.VideoPricePerSecond != nil {
+		if *input.VideoPricePerSecond < 0 {
+			return nil, errors.New("video_price_per_second must be >= 0")
+		}
+		group.VideoPricePerSecond = normalizePrice(input.VideoPricePerSecond)
 	}
 	if input.ImageRateIndependent != nil {
 		group.ImageRateIndependent = *input.ImageRateIndependent

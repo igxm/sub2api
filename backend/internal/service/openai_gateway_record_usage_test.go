@@ -58,6 +58,48 @@ func TestOpenAIGatewayServiceRecordUsage_RejectsNilInput(t *testing.T) {
 	require.Error(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{}))
 }
 
+func TestOpenAIGatewayServiceRecordUsage_BillsVideoByDurationWithoutGroupMultiplier(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	groupID := int64(8)
+	videoPricePerSecond := 0.02
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:            "video_req_duration_10",
+			Model:                "grok-imagine-video",
+			UpstreamModel:        "grok-imagine-video",
+			VideoDurationSeconds: 10,
+		},
+		APIKey: &APIKey{
+			ID:      2,
+			GroupID: &groupID,
+			Group: &Group{
+				ID:                  groupID,
+				RateMultiplier:      9,
+				VideoPricePerSecond: &videoPricePerSecond,
+			},
+		},
+		User:    &User{ID: 1},
+		Account: &Account{ID: 3, Platform: PlatformGrok},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, usageRepo.calls)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, 0.20, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.20, usageRepo.lastLog.ActualCost, 1e-12)
+	require.Equal(t, 10, usageRepo.lastLog.VideoDurationSeconds)
+	require.NotNil(t, usageRepo.lastLog.VideoUnitPrice)
+	require.InDelta(t, 0.02, *usageRepo.lastLog.VideoUnitPrice, 1e-12)
+	require.InDelta(t, 0.20, usageRepo.lastLog.VideoCost, 1e-12)
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModeVideo), *usageRepo.lastLog.BillingMode)
+	require.InDelta(t, 0.20, userRepo.lastAmount, 1e-12)
+}
+
 func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}

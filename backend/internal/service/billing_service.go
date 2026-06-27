@@ -152,6 +152,7 @@ type CostBreakdown struct {
 	InputCost         float64
 	OutputCost        float64
 	ImageOutputCost   float64
+	VideoCost         float64
 	CacheCreationCost float64
 	CacheReadCost     float64
 	TotalCost         float64

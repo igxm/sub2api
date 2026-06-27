@@ -153,6 +153,80 @@ func TestOpenAIGatewayHandlerGrokMediaTransit_ImagesAndVideosGenerateThroughGate
 	require.Equal(t, "grok-imagine-video", gjson.GetBytes(bodies[1], "model").String())
 }
 
+func TestOpenAIGatewayHandlerGrokMediaTransit_VideoGenerationRequiresGroupPermission(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	gin.SetMode(gin.TestMode)
+	groupID := int64(6228)
+	accounts := []service.Account{{
+		ID:          73,
+		Name:        "grok-video",
+		Platform:    service.PlatformGrok,
+		Type:        service.AccountTypeAPIKey,
+		Status:      service.StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "xai-key",
+			"base_url": "https://xai.test/v1",
+			"model_mapping": map[string]any{
+				"grok-imagine-video": "grok-imagine-video",
+			},
+		},
+	}}
+	accountRepo := openAIImagesFailoverAccountRepo{accounts: accounts}
+	upstream := &grokMediaTransitUpstream{}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	gatewayService := service.NewOpenAIGatewayService(
+		accountRepo,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		cfg,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		upstream,
+		service.NewDeferredService(accountRepo, nil, time.Hour),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(billingService.Stop)
+	handler := NewOpenAIGatewayHandler(
+		gatewayService,
+		service.NewConcurrencyService(nil),
+		billingService,
+		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
+		nil,
+		nil,
+		nil,
+		nil,
+		cfg,
+	)
+
+	videoBody := []byte(`{"model":"grok-imagine-video","prompt":"a red paper boat","duration":1}`)
+	videoRec, videoCtx := newGrokMediaTransitContext(t, http.MethodPost, "/v1/videos/generations", videoBody, groupID)
+	videoCtx.MustGet(string(middleware2.ContextKeyAPIKey)).(*service.APIKey).Group.AllowVideoGeneration = false
+
+	handler.Videos(videoCtx)
+
+	require.Equal(t, http.StatusForbidden, videoRec.Code)
+	require.Equal(t, "permission_error", gjson.GetBytes(videoRec.Body.Bytes(), "error.type").String())
+	require.Contains(t, gjson.GetBytes(videoRec.Body.Bytes(), "error.message").String(), "Video generation is not enabled")
+	requests, _ := upstream.recorded()
+	require.Empty(t, requests)
+}
+
 func newGrokMediaTransitContext(t *testing.T, method string, path string, body []byte, groupID int64) (*httptest.ResponseRecorder, *gin.Context) {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -166,6 +240,7 @@ func newGrokMediaTransitContext(t *testing.T, method string, path string, body [
 			ID:                   groupID,
 			Platform:             service.PlatformGrok,
 			AllowImageGeneration: true,
+			AllowVideoGeneration: true,
 		},
 		User: &service.User{ID: 100},
 	})

@@ -72,6 +72,11 @@ func (s *OpenAIGatewayService) forwardGrokVideos(
 	if err != nil {
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
+	if resp, err = s.retryGrokOAuthUnauthorized(ctx, account, resp, proxyURL, func(token string) (*http.Request, error) {
+		return buildGrokVideosRequest(upstreamCtx, account, parsed, forwardBody, forwardContentType, token)
+	}); err != nil {
+		return nil, err
+	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
@@ -124,11 +129,12 @@ func (s *OpenAIGatewayService) forwardGrokVideos(
 	}
 
 	return &OpenAIForwardResult{
-		RequestID:       requestID,
-		Model:           requestModel,
-		UpstreamModel:   upstreamModel,
-		ResponseHeaders: resp.Header.Clone(),
-		Duration:        time.Since(startTime),
+		RequestID:            requestID,
+		Model:                requestModel,
+		UpstreamModel:        upstreamModel,
+		ResponseHeaders:      resp.Header.Clone(),
+		Duration:             time.Since(startTime),
+		VideoDurationSeconds: parsed.DurationSeconds,
 	}, nil
 }
 

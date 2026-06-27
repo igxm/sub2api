@@ -86,6 +86,23 @@ func (s *GrokQuotaService) ProbeUsage(ctx context.Context, accountID int64) (*Gr
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "GROK_QUOTA_PROBE_REQUEST_FAILED", "upstream probe failed: %v", err)
 	}
+	if resp != nil && resp.StatusCode == http.StatusUnauthorized {
+		_ = resp.Body.Close()
+		token, err = s.tokenProvider.ForceRefreshAccessToken(ctx, account)
+		if err != nil {
+			return nil, infraerrors.Newf(http.StatusBadGateway, "GROK_QUOTA_TOKEN_REFRESH_FAILED", "failed to refresh access token after upstream 401: %v", err)
+		}
+		retryReq, err := http.NewRequestWithContext(callCtx, http.MethodPost, targetURL, bytes.NewReader(body))
+		if err != nil {
+			return nil, infraerrors.Newf(http.StatusInternalServerError, "GROK_QUOTA_PROBE_REQUEST_BUILD_FAILED", "failed to build upstream retry request: %v", err)
+		}
+		retryReq.Header = req.Header.Clone()
+		retryReq.Header.Set("Authorization", "Bearer "+token)
+		resp, err = s.httpUpstream.Do(retryReq, proxyURL, account.ID, maxInt(account.Concurrency, 1))
+		if err != nil {
+			return nil, infraerrors.Newf(http.StatusBadGateway, "GROK_QUOTA_PROBE_REQUEST_FAILED", "upstream probe retry failed: %v", err)
+		}
+	}
 	defer func() { _ = resp.Body.Close() }()
 
 	snapshot := xai.ObserveQuotaHeaders(resp.Header, resp.StatusCode, "active_probe")

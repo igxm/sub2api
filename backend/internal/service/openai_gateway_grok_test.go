@@ -135,6 +135,73 @@ func TestForwardImagesForGrokUsesXAIImagesGenerationsAndBearerToken(t *testing.T
 	require.Equal(t, 2, len(gjson.Get(recorder.Body.String(), "data").Array()))
 }
 
+func TestForwardImagesForGrokRefreshesAndRetriesInvalidBearerToken(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	t.Setenv(xai.EnvBaseURL, xai.DefaultCLIBaseURL)
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-image","prompt":"draw a cat"}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          58,
+		Name:        "grok-image-refresh",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":  "invalid-access-token",
+			"refresh_token": "refresh-token",
+			"expires_at":    time.Now().Add(4 * time.Hour).UTC().Format(time.RFC3339),
+			"base_url":      "https://xai.test/v1",
+			"client_id":     "client-id",
+		},
+	}
+	repo := &tokenRefreshAccountRepo{}
+	repo.accountsByID = map[int64]*Account{58: account}
+	cache := &grokTokenCacheForProviderTest{lockResult: true}
+	oauthSvc := NewGrokOAuthService(nil, &grokOAuthClientStub{
+		refreshResponse: &xai.TokenResponse{
+			AccessToken: "new-access-token",
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+		},
+	})
+	defer oauthSvc.Stop()
+	tokenProvider := NewGrokTokenProvider(repo, cache)
+	tokenProvider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), NewGrokTokenRefresher(oauthSvc))
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		{
+			StatusCode: http.StatusUnauthorized,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"type":"error","error":{"type":"authentication_error","message":"Invalid bearer token"}}`)),
+		},
+		{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"b64_json":"aW1n"}]}`)),
+		},
+	}}
+	svc.httpUpstream = upstream
+	svc.grokTokenProvider = tokenProvider
+	svc.accountRepo = repo
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, 1, result.ImageCount)
+	require.Len(t, upstream.requests, 2)
+	require.Equal(t, "Bearer invalid-access-token", upstream.requests[0].Header.Get("Authorization"))
+	require.Equal(t, "Bearer new-access-token", upstream.requests[1].Header.Get("Authorization"))
+	require.Equal(t, 1, repo.updateCredentialsCalls)
+}
+
 func TestForwardImagesForGrokSupportsAPIKeyAccount(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	gin.SetMode(gin.TestMode)
@@ -434,6 +501,73 @@ func TestForwardVideosForGrokGenerationUsesXAIVideosGenerationsAndBearerToken(t 
 	require.Equal(t, "grok-imagine-video", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Equal(t, "a cat walking", gjson.GetBytes(upstream.lastBody, "prompt").String())
 	require.Equal(t, "video_req_123", gjson.Get(recorder.Body.String(), "request_id").String())
+}
+
+func TestForwardVideosForGrokRefreshesAndRetriesInvalidBearerToken(t *testing.T) {
+	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
+	t.Setenv(xai.EnvBaseURL, xai.DefaultCLIBaseURL)
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := []byte(`{"model":"grok-imagine-video","prompt":"a cat walking","duration":5}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/videos/generations", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIVideosRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:          60,
+		Name:        "grok-video-refresh",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeOAuth,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":  "invalid-access-token",
+			"refresh_token": "refresh-token",
+			"expires_at":    time.Now().Add(4 * time.Hour).UTC().Format(time.RFC3339),
+			"base_url":      "https://xai.test/v1",
+			"client_id":     "client-id",
+		},
+	}
+	repo := &tokenRefreshAccountRepo{}
+	repo.accountsByID = map[int64]*Account{60: account}
+	cache := &grokTokenCacheForProviderTest{lockResult: true}
+	oauthSvc := NewGrokOAuthService(nil, &grokOAuthClientStub{
+		refreshResponse: &xai.TokenResponse{
+			AccessToken: "new-access-token",
+			TokenType:   "Bearer",
+			ExpiresIn:   3600,
+		},
+	})
+	defer oauthSvc.Stop()
+	tokenProvider := NewGrokTokenProvider(repo, cache)
+	tokenProvider.SetRefreshAPI(NewOAuthRefreshAPI(repo, cache), NewGrokTokenRefresher(oauthSvc))
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		{
+			StatusCode: http.StatusUnauthorized,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"type":"error","error":{"type":"authentication_error","message":"Invalid bearer token"}}`)),
+		},
+		{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}, "Xai-Request-Id": []string{"xai-video-req"}},
+			Body:       io.NopCloser(strings.NewReader(`{"request_id":"video_req_123"}`)),
+		},
+	}}
+	svc.httpUpstream = upstream
+	svc.grokTokenProvider = tokenProvider
+	svc.accountRepo = repo
+
+	result, err := svc.ForwardVideos(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.Equal(t, "xai-video-req", result.RequestID)
+	require.Len(t, upstream.requests, 2)
+	require.Equal(t, "Bearer invalid-access-token", upstream.requests[0].Header.Get("Authorization"))
+	require.Equal(t, "Bearer new-access-token", upstream.requests[1].Header.Get("Authorization"))
+	require.Equal(t, 1, repo.updateCredentialsCalls)
 }
 
 func TestForwardVideosForGrokGenerationAcceptsSDKImageURLField(t *testing.T) {

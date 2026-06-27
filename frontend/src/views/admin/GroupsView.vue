@@ -754,7 +754,8 @@
           v-if="
             createForm.platform === 'antigravity' ||
             createForm.platform === 'gemini' ||
-            createForm.platform === 'openai'
+            createForm.platform === 'openai' ||
+            createForm.platform === 'grok'
           "
           class="border-t pt-4"
         >
@@ -851,6 +852,45 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- 视频生成计费配置 -->
+        <div
+          v-if="createForm.platform === 'grok' || createForm.platform === 'openai'"
+          class="border-t pt-4"
+        >
+          <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
+            {{ t("admin.groups.videoPricing.title") }}
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {{ t("admin.groups.videoPricing.description") }}
+          </p>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                v-model="createForm.allow_video_generation"
+                type="checkbox"
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {{ t("admin.groups.videoPricing.allowVideoGeneration") }}
+            </label>
+            <div>
+              <label class="input-label">
+                {{ t("admin.groups.videoPricing.pricePerSecond") }}
+              </label>
+              <input
+                v-model.number="createForm.video_price_per_second"
+                type="number"
+                step="0.0001"
+                min="0"
+                class="input"
+                placeholder="0.02"
+              />
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+            {{ t("admin.groups.videoPricing.modeHint") }}
+          </p>
         </div>
 
         <!-- 支持的模型系列（仅 antigravity 平台） -->
@@ -2042,7 +2082,8 @@
           v-if="
             editForm.platform === 'antigravity' ||
             editForm.platform === 'gemini' ||
-            editForm.platform === 'openai'
+            editForm.platform === 'openai' ||
+            editForm.platform === 'grok'
           "
           class="border-t pt-4"
         >
@@ -2139,6 +2180,45 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- 视频生成计费配置 -->
+        <div
+          v-if="editForm.platform === 'grok' || editForm.platform === 'openai'"
+          class="border-t pt-4"
+        >
+          <label class="block mb-2 font-medium text-gray-700 dark:text-gray-300">
+            {{ t("admin.groups.videoPricing.title") }}
+          </label>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            {{ t("admin.groups.videoPricing.description") }}
+          </p>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                v-model="editForm.allow_video_generation"
+                type="checkbox"
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {{ t("admin.groups.videoPricing.allowVideoGeneration") }}
+            </label>
+            <div>
+              <label class="input-label">
+                {{ t("admin.groups.videoPricing.pricePerSecond") }}
+              </label>
+              <input
+                v-model.number="editForm.video_price_per_second"
+                type="number"
+                step="0.0001"
+                min="0"
+                class="input"
+                placeholder="0.02"
+              />
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+            {{ t("admin.groups.videoPricing.modeHint") }}
+          </p>
         </div>
 
         <!-- 支持的模型系列（仅 antigravity 平台） -->
@@ -3337,6 +3417,8 @@ const createForm = reactive({
   monthly_limit_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
+  allow_video_generation: false,
+  video_price_per_second: null as number | null,
   image_rate_independent: false,
   image_rate_multiplier: 1,
   image_price_1k: null as number | null,
@@ -3668,6 +3750,8 @@ const editForm = reactive({
   monthly_limit_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
+  allow_video_generation: false,
+  video_price_per_second: null as number | null,
   image_rate_independent: false,
   image_rate_multiplier: 1,
   image_price_1k: null as number | null,
@@ -3919,6 +4003,8 @@ const closeCreateModal = () => {
   createForm.weekly_limit_usd = null;
   createForm.monthly_limit_usd = null;
   createForm.allow_image_generation = false;
+  createForm.allow_video_generation = false;
+  createForm.video_price_per_second = null;
   createForm.image_rate_independent = false;
   createForm.image_rate_multiplier = 1;
   createForm.image_price_1k = null;
@@ -4010,6 +4096,9 @@ const handleCreateGroup = async () => {
     requestData.daily_limit_usd = emptyToNull(requestData.daily_limit_usd);
     requestData.weekly_limit_usd = emptyToNull(requestData.weekly_limit_usd);
     requestData.monthly_limit_usd = emptyToNull(requestData.monthly_limit_usd);
+    requestData.video_price_per_second = emptyToNull(
+      requestData.video_price_per_second,
+    );
     requestData.image_rate_multiplier = normalizeImageRateMultiplier(
       requestData.image_rate_multiplier,
     );
@@ -4045,6 +4134,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.weekly_limit_usd = group.weekly_limit_usd;
   editForm.monthly_limit_usd = group.monthly_limit_usd;
   editForm.allow_image_generation = group.allow_image_generation ?? false;
+  editForm.allow_video_generation = group.allow_video_generation ?? false;
+  editForm.video_price_per_second = group.video_price_per_second ?? null;
   editForm.image_rate_independent = group.image_rate_independent ?? false;
   editForm.image_rate_multiplier = group.image_rate_multiplier ?? 1;
   editForm.image_price_1k = group.image_price_1k;
@@ -4149,6 +4240,7 @@ const handleUpdateGroup = async () => {
     payload.daily_limit_usd = emptyToNull(payload.daily_limit_usd);
     payload.weekly_limit_usd = emptyToNull(payload.weekly_limit_usd);
     payload.monthly_limit_usd = emptyToNull(payload.monthly_limit_usd);
+    payload.video_price_per_second = emptyToNull(payload.video_price_per_second);
     payload.image_rate_multiplier = normalizeImageRateMultiplier(
       payload.image_rate_multiplier,
     );

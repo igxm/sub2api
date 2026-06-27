@@ -90,6 +90,11 @@ func (s *OpenAIGatewayService) forwardGrokImages(
 	if err != nil {
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
+	if resp, err = s.retryGrokOAuthUnauthorized(ctx, account, resp, proxyURL, func(token string) (*http.Request, error) {
+		return buildGrokImagesRequest(upstreamCtx, c, account, parsed.Endpoint, forwardBody, forwardContentType, token)
+	}); err != nil {
+		return nil, err
+	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {

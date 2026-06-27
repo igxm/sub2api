@@ -1,0 +1,8 @@
+ALTER TABLE usage_logs
+    ADD COLUMN IF NOT EXISTS video_duration_seconds INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE usage_logs
+    ADD COLUMN IF NOT EXISTS video_unit_price DECIMAL(20, 10);
+
+ALTER TABLE usage_logs
+    ADD COLUMN IF NOT EXISTS video_cost DECIMAL(20, 10) NOT NULL DEFAULT 0;

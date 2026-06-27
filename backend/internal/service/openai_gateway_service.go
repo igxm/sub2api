@@ -239,20 +239,21 @@ type OpenAIForwardResult struct {
 	ServiceTier *string
 	// ReasoningEffort is extracted from request body (reasoning.effort) or derived from model suffix.
 	// Stored for usage records display; nil means not provided / not applicable.
-	ReasoningEffort    *string
-	Stream             bool
-	OpenAIWSMode       bool
-	ResponseHeaders    http.Header
-	Duration           time.Duration
-	FirstTokenMs       *int
-	ClientDisconnect   bool
-	ImageCount         int
-	ImageSize          string
-	ImageInputSize     string
-	ImageOutputSize    string
-	ImageOutputSizes   []string
-	ImageSizeSource    string
-	ImageSizeBreakdown map[string]int
+	ReasoningEffort      *string
+	Stream               bool
+	OpenAIWSMode         bool
+	ResponseHeaders      http.Header
+	Duration             time.Duration
+	FirstTokenMs         *int
+	ClientDisconnect     bool
+	ImageCount           int
+	ImageSize            string
+	ImageInputSize       string
+	ImageOutputSize      string
+	ImageOutputSizes     []string
+	ImageSizeSource      string
+	ImageSizeBreakdown   map[string]int
+	VideoDurationSeconds int
 
 	wsReplayInput       []json.RawMessage
 	wsReplayInputExists bool
@@ -6273,39 +6274,46 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 
 	usageLog := &UsageLog{
-		UserID:              user.ID,
-		APIKeyID:            apiKey.ID,
-		AccountID:           account.ID,
-		RequestID:           requestID,
-		Model:               result.Model,
-		RequestedModel:      requestedModel,
-		UpstreamModel:       optionalNonEqualStringPtr(result.UpstreamModel, result.Model),
-		ServiceTier:         result.ServiceTier,
-		ReasoningEffort:     result.ReasoningEffort,
-		InboundEndpoint:     optionalTrimmedStringPtr(input.InboundEndpoint),
-		UpstreamEndpoint:    optionalTrimmedStringPtr(input.UpstreamEndpoint),
-		InputTokens:         actualInputTokens,
-		OutputTokens:        result.Usage.OutputTokens,
-		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
-		CacheReadTokens:     result.Usage.CacheReadInputTokens,
-		ImageOutputTokens:   result.Usage.ImageOutputTokens,
-		ImageCount:          result.ImageCount,
-		ImageSize:           optionalTrimmedStringPtr(result.ImageSize),
-		ImageInputSize:      optionalTrimmedStringPtr(result.ImageInputSize),
-		ImageOutputSize:     optionalTrimmedStringPtr(result.ImageOutputSize),
-		ImageSizeSource:     optionalTrimmedStringPtr(result.ImageSizeSource),
-		ImageSizeBreakdown:  result.ImageSizeBreakdown,
+		UserID:               user.ID,
+		APIKeyID:             apiKey.ID,
+		AccountID:            account.ID,
+		RequestID:            requestID,
+		Model:                result.Model,
+		RequestedModel:       requestedModel,
+		UpstreamModel:        optionalNonEqualStringPtr(result.UpstreamModel, result.Model),
+		ServiceTier:          result.ServiceTier,
+		ReasoningEffort:      result.ReasoningEffort,
+		InboundEndpoint:      optionalTrimmedStringPtr(input.InboundEndpoint),
+		UpstreamEndpoint:     optionalTrimmedStringPtr(input.UpstreamEndpoint),
+		InputTokens:          actualInputTokens,
+		OutputTokens:         result.Usage.OutputTokens,
+		CacheCreationTokens:  result.Usage.CacheCreationInputTokens,
+		CacheReadTokens:      result.Usage.CacheReadInputTokens,
+		ImageOutputTokens:    result.Usage.ImageOutputTokens,
+		ImageCount:           result.ImageCount,
+		ImageSize:            optionalTrimmedStringPtr(result.ImageSize),
+		ImageInputSize:       optionalTrimmedStringPtr(result.ImageInputSize),
+		ImageOutputSize:      optionalTrimmedStringPtr(result.ImageOutputSize),
+		ImageSizeSource:      optionalTrimmedStringPtr(result.ImageSizeSource),
+		ImageSizeBreakdown:   result.ImageSizeBreakdown,
+		VideoDurationSeconds: result.VideoDurationSeconds,
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
 		usageLog.OutputCost = cost.OutputCost
 		usageLog.ImageOutputCost = cost.ImageOutputCost
+		usageLog.VideoCost = cost.VideoCost
 		usageLog.CacheCreationCost = cost.CacheCreationCost
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
 	}
-	if result.ImageCount > 0 && (cost == nil || cost.BillingMode != string(BillingModeToken)) {
+	if result.VideoDurationSeconds > 0 {
+		usageLog.VideoUnitPrice = videoUnitPriceFromGroup(apiKey)
+	}
+	if result.VideoDurationSeconds > 0 && cost != nil && cost.BillingMode == string(BillingModeVideo) {
+		usageLog.RateMultiplier = 1
+	} else if result.ImageCount > 0 && (cost == nil || cost.BillingMode != string(BillingModeToken)) {
 		usageLog.RateMultiplier = imageMultiplier
 	} else {
 		usageLog.RateMultiplier = multiplier
@@ -6400,6 +6408,9 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	tokens UsageTokens,
 	serviceTier string,
 ) (*CostBreakdown, error) {
+	if result != nil && result.VideoDurationSeconds > 0 {
+		return calculateOpenAIVideoCost(apiKey, result.VideoDurationSeconds), nil
+	}
 	billingModel := firstUsageBillingModel(billingModels)
 	if result != nil && result.ImageCount > 0 {
 		// 渠道定价为 token 计费时走 token 路径，否则走图片计费
@@ -6499,6 +6510,34 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 		}
 	}
 	return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+}
+
+func calculateOpenAIVideoCost(apiKey *APIKey, durationSeconds int) *CostBreakdown {
+	if durationSeconds <= 0 {
+		return &CostBreakdown{BillingMode: string(BillingModeVideo)}
+	}
+	unitPrice := videoUnitPriceFromGroup(apiKey)
+	if unitPrice == nil || *unitPrice <= 0 {
+		return &CostBreakdown{BillingMode: string(BillingModeVideo)}
+	}
+	total := float64(durationSeconds) * *unitPrice
+	return &CostBreakdown{
+		VideoCost:   total,
+		TotalCost:   total,
+		ActualCost:  total,
+		BillingMode: string(BillingModeVideo),
+	}
+}
+
+func videoUnitPriceFromGroup(apiKey *APIKey) *float64 {
+	if apiKey == nil || apiKey.Group == nil || apiKey.Group.VideoPricePerSecond == nil {
+		return nil
+	}
+	price := *apiKey.Group.VideoPricePerSecond
+	if price < 0 {
+		return nil
+	}
+	return &price
 }
 
 func (s *OpenAIGatewayService) resolveOpenAIChannelPricing(ctx context.Context, billingModel string, apiKey *APIKey) *ResolvedPricing {

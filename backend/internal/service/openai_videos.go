@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,11 +18,12 @@ const (
 )
 
 type OpenAIVideosRequest struct {
-	Endpoint  string
-	Method    string
-	Model     string
-	RequestID string
-	Body      []byte
+	Endpoint        string
+	Method          string
+	Model           string
+	RequestID       string
+	Body            []byte
+	DurationSeconds int
 }
 
 func (r *OpenAIVideosRequest) IsResult() bool {
@@ -67,7 +69,32 @@ func (s *OpenAIGatewayService) ParseOpenAIVideosRequest(c *gin.Context, body []b
 	if strings.TrimSpace(req.Model) == "" {
 		return nil, fmt.Errorf("videos endpoint requires a model")
 	}
+	req.DurationSeconds = parseOpenAIVideoDurationSeconds(body)
 	return req, nil
+}
+
+func parseOpenAIVideoDurationSeconds(body []byte) int {
+	const defaultVideoDurationSeconds = 5
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return defaultVideoDurationSeconds
+	}
+	duration := gjson.GetBytes(body, "duration")
+	if !duration.Exists() {
+		return defaultVideoDurationSeconds
+	}
+	switch duration.Type {
+	case gjson.Number:
+		if duration.Int() > 0 {
+			return int(duration.Int())
+		}
+	case gjson.String:
+		value := strings.TrimSpace(duration.String())
+		value = strings.TrimSuffix(value, "s")
+		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
+			return parsed
+		}
+	}
+	return defaultVideoDurationSeconds
 }
 
 func normalizeOpenAIVideosEndpointPath(path string) (string, string) {
