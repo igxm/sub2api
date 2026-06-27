@@ -183,6 +183,35 @@ func TestUsageLogFromService_IncludesImageBillingMetadataForUserAndAdmin(t *test
 	}
 }
 
+func TestUsageLogFromService_IncludesVideoBillingMetadataForUserAndAdmin(t *testing.T) {
+	t.Parallel()
+
+	unitPrice := 0.02
+	log := &service.UsageLog{
+		RequestID:            "req_video_metadata",
+		Model:                "grok-imagine-video",
+		VideoDurationSeconds: 5,
+		VideoUnitPrice:       &unitPrice,
+		VideoCost:            0.1,
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+
+	for _, got := range []*UsageLog{userDTO, &adminDTO.UsageLog} {
+		require.Equal(t, 5, got.VideoDurationSeconds)
+		require.NotNil(t, got.VideoUnitPrice)
+		require.Equal(t, unitPrice, *got.VideoUnitPrice)
+		require.Equal(t, 0.1, got.VideoCost)
+
+		body, err := json.Marshal(got)
+		require.NoError(t, err)
+		require.Contains(t, string(body), `"video_duration_seconds":5`)
+		require.Contains(t, string(body), `"video_unit_price":0.02`)
+		require.Contains(t, string(body), `"video_cost":0.1`)
+	}
+}
+
 func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 	t.Parallel()
 
