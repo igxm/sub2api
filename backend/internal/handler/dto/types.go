@@ -480,6 +480,11 @@ type UsageLog struct {
 	ImageSizeBreakdown map[string]int `json:"image_size_breakdown"`
 	MediaType          *string        `json:"media_type"`
 
+	// 视频生成字段
+	VideoDurationSeconds int      `json:"video_duration_seconds"`
+	VideoUnitPrice       *float64 `json:"video_unit_price"`
+	VideoCost            float64  `json:"video_cost"`
+
 	// User-Agent
 	UserAgent *string `json:"user_agent"`
 
